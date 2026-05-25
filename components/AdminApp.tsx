@@ -5,6 +5,7 @@ import { Header } from "./Header";
 import { StatsPanel } from "./StatsPanel";
 import { StickerAlbumGrid } from "./StickerAlbumGrid";
 import { useLanguage } from "./useLanguage";
+import { fwcRange, groups, type Language } from "@/lib/album";
 import { text } from "@/lib/i18n";
 import { normalizeCollectionState, type CollectionState } from "@/lib/stats";
 
@@ -15,6 +16,19 @@ type GoogleDiagnostics = {
   serviceAccountEmail: string | null;
   privateKeyPresent: boolean;
   privateKeyLooksValid: boolean;
+};
+
+type TradeProposalRecord = {
+  rowNumber: number;
+  timestamp: string;
+  name: string;
+  contact: string;
+  note: string;
+  hasForMe: number[];
+  wantsFromMe: number[];
+  language: string;
+  status: "pending" | "accepted";
+  acceptedAt: string;
 };
 
 export function AdminApp() {
@@ -28,6 +42,9 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [diagnostics, setDiagnostics] = useState<GoogleDiagnostics | null>(null);
+  const [proposals, setProposals] = useState<TradeProposalRecord[]>([]);
+  const [isLoadingProposals, setIsLoadingProposals] = useState(false);
+  const [acceptingProposal, setAcceptingProposal] = useState<number | null>(null);
 
   async function loadDiagnostics(currentPassword = password) {
     try {
@@ -49,6 +66,29 @@ export function AdminApp() {
     }
   }
 
+  async function loadProposals(currentPassword = password) {
+    setIsLoadingProposals(true);
+    try {
+      const response = await fetch("/api/proposals", {
+        headers: {
+          "x-admin-password": currentPassword
+        },
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as { proposals?: TradeProposalRecord[] };
+      setProposals(data.proposals ?? []);
+    } catch {
+      setProposals([]);
+    } finally {
+      setIsLoadingProposals(false);
+    }
+  }
+
   useEffect(() => {
     setShareUrl(`${window.location.origin}/share`);
     const storedPassword = window.sessionStorage.getItem("panini-admin-password");
@@ -56,6 +96,7 @@ export function AdminApp() {
       setPassword(storedPassword);
       setIsUnlocked(true);
       loadDiagnostics(storedPassword);
+      loadProposals(storedPassword);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -95,6 +136,7 @@ export function AdminApp() {
     window.sessionStorage.setItem("panini-admin-password", password);
     setIsUnlocked(true);
     loadDiagnostics(password);
+    loadProposals(password);
   }
 
   function toggleSticker(sticker: number, mode: "missing" | "trade") {
@@ -147,6 +189,40 @@ export function AdminApp() {
       setMessage(t.saveError);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function acceptProposal(rowNumber: number) {
+    setAcceptingProposal(rowNumber);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/proposals", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": password
+        },
+        body: JSON.stringify({ rowNumber })
+      });
+
+      if (!response.ok) {
+        throw new Error("Accept failed");
+      }
+
+      const data = (await response.json()) as {
+        collection: CollectionState;
+        proposal: TradeProposalRecord;
+      };
+      setCollection(normalizeCollectionState(data.collection));
+      setProposals((current) =>
+        current.map((proposal) => (proposal.rowNumber === rowNumber ? data.proposal : proposal))
+      );
+      setMessage(t.tradeAccepted);
+    } catch {
+      setMessage(t.saveError);
+    } finally {
+      setAcceptingProposal(null);
     }
   }
 
@@ -230,6 +306,50 @@ export function AdminApp() {
               </section>
             </div>
 
+            <section className="panel proposal-admin-panel" aria-labelledby="proposal-admin-title">
+              <div className="section-heading">
+                <span className="kicker">Google Sheets</span>
+                <h2 id="proposal-admin-title">{t.tradeProposals}</h2>
+              </div>
+              {isLoadingProposals ? <p className="empty-state">{t.loadingProposals}</p> : null}
+              {!isLoadingProposals && proposals.length === 0 ? <p className="empty-state">{t.noTradeProposals}</p> : null}
+              <div className="proposal-list">
+                {proposals.map((proposal) => (
+                  <article className="proposal-card" key={proposal.rowNumber}>
+                    <div className="proposal-card-header">
+                      <div>
+                        <strong>{proposal.name || t.proposalName}</strong>
+                        <span>{formatDate(proposal.timestamp, language)}</span>
+                      </div>
+                      <span className={`proposal-status ${proposal.status}`}>
+                        {proposal.status === "accepted" ? t.accepted : t.pending}
+                      </span>
+                    </div>
+                    {proposal.contact ? <p className="proposal-meta">{proposal.contact}</p> : null}
+                    <dl>
+                      <div>
+                        <dt>{t.proposalHasForMe}</dt>
+                        <dd>{formatStickerList(proposal.hasForMe, language)}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.proposalWantsFromMe}</dt>
+                        <dd>{formatStickerList(proposal.wantsFromMe, language)}</dd>
+                      </div>
+                    </dl>
+                    {proposal.note ? <p className="proposal-note">{proposal.note}</p> : null}
+                    <button
+                      className="primary-button full"
+                      type="button"
+                      onClick={() => acceptProposal(proposal.rowNumber)}
+                      disabled={proposal.status === "accepted" || acceptingProposal === proposal.rowNumber}
+                    >
+                      {acceptingProposal === proposal.rowNumber ? t.acceptingTrade : t.acceptTrade}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+
             <section className="collection-section">
               <div className="section-heading">
                 <span className="kicker">{t.selectedMissing}</span>
@@ -250,4 +370,59 @@ export function AdminApp() {
       </main>
     </>
   );
+}
+
+function formatStickerList(stickers: number[], language: Language) {
+  if (stickers.length === 0) {
+    return "-";
+  }
+
+  const stickerSet = new Set(stickers);
+  const sections: string[] = [];
+  const fwcStickers = rangeFromSet(stickerSet, fwcRange.start, fwcRange.end);
+
+  if (fwcStickers.length > 0) {
+    sections.push(`FWC: ${fwcStickers.join(", ")}`);
+  }
+
+  for (const group of groups) {
+    for (const team of group.teams) {
+      const teamStickers = rangeFromSet(stickerSet, team.start, team.end).map(
+        (sticker) => sticker - team.start + 1
+      );
+
+      if (teamStickers.length > 0) {
+        sections.push(`${team.abbr}: ${teamStickers.join(", ")}`);
+      }
+    }
+  }
+
+  return sections.length > 0 ? sections.join(" · ") : stickers.join(", ");
+}
+
+function rangeFromSet(stickers: Set<number>, start: number, end: number) {
+  const values: number[] = [];
+  for (let sticker = start; sticker <= end; sticker += 1) {
+    if (stickers.has(sticker)) {
+      values.push(sticker);
+    }
+  }
+
+  return values;
+}
+
+function formatDate(value: string, language: Language) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(language === "da" ? "da-DK" : "bs-BA", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(date);
 }

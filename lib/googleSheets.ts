@@ -65,6 +65,13 @@ export type TradeProposal = {
   language: string;
 };
 
+export type TradeProposalRecord = TradeProposal & {
+  rowNumber: number;
+  timestamp: string;
+  status: "pending" | "accepted";
+  acceptedAt: string;
+};
+
 export function hasGoogleSheetsConfig() {
   return Boolean(getGoogleConfig());
 }
@@ -109,7 +116,7 @@ export async function appendTradeProposalToGoogleSheets(proposal: TradeProposal)
   await ensureSheetStructure(config);
   await googleRequest(
     config,
-    `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, "A:G"))}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, "A:I"))}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -121,12 +128,103 @@ export async function appendTradeProposalToGoogleSheets(proposal: TradeProposal)
             proposal.hasForMe.join(", "),
             proposal.wantsFromMe.join(", "),
             proposal.note,
-            proposal.language
+            proposal.language,
+            "pending",
+            ""
           ]
         ]
       })
     }
   );
+}
+
+export async function readTradeProposalsFromGoogleSheets() {
+  const config = requireGoogleConfig();
+  await ensureSheetStructure(config);
+  const result = await googleRequest<{ values?: string[][] }>(
+    config,
+    `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, "A2:I1000"))}`
+  );
+
+  return (result.values ?? [])
+    .map((row, index): TradeProposalRecord => {
+      const status = row[7] === "accepted" ? "accepted" : "pending";
+      return {
+        rowNumber: index + 2,
+        timestamp: row[0] ?? "",
+        name: row[1] ?? "",
+        contact: row[2] ?? "",
+        hasForMe: uniqueSorted(parseStickerList(row[3] ?? "")),
+        wantsFromMe: uniqueSorted(parseStickerList(row[4] ?? "")),
+        note: row[5] ?? "",
+        language: row[6] ?? "da",
+        status,
+        acceptedAt: row[8] ?? ""
+      };
+    })
+    .filter((proposal) => proposal.timestamp || proposal.name || proposal.hasForMe.length || proposal.wantsFromMe.length)
+    .reverse();
+}
+
+export async function acceptTradeProposalInGoogleSheets(rowNumber: number) {
+  if (!Number.isInteger(rowNumber) || rowNumber < 2 || rowNumber > 1000) {
+    throw new Error("Invalid proposal row.");
+  }
+
+  const config = requireGoogleConfig();
+  await ensureSheetStructure(config);
+  const result = await googleRequest<{ values?: string[][] }>(
+    config,
+    `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, `A${rowNumber}:I${rowNumber}`))}`
+  );
+  const row = result.values?.[0];
+
+  if (!row) {
+    throw new Error("Trade proposal not found.");
+  }
+
+  const proposal: TradeProposalRecord = {
+    rowNumber,
+    timestamp: row[0] ?? "",
+    name: row[1] ?? "",
+    contact: row[2] ?? "",
+    hasForMe: uniqueSorted(parseStickerList(row[3] ?? "")),
+    wantsFromMe: uniqueSorted(parseStickerList(row[4] ?? "")),
+    note: row[5] ?? "",
+    language: row[6] ?? "da",
+    status: row[7] === "accepted" ? "accepted" : "pending",
+    acceptedAt: row[8] ?? ""
+  };
+
+  if (proposal.status === "accepted") {
+    throw new Error("Trade proposal is already accepted.");
+  }
+
+  const current = await readCollectionFromGoogleSheets();
+  const received = new Set(proposal.hasForMe);
+  const givenAway = new Set(proposal.wantsFromMe);
+  const saved = await writeCollectionToGoogleSheets({
+    missing: current.missing.filter((sticker) => !received.has(sticker)),
+    trade: current.trade.filter((sticker) => !givenAway.has(sticker))
+  });
+  const acceptedAt = new Date().toISOString();
+
+  await googleRequest(config, `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, `H${rowNumber}:I${rowNumber}`))}?valueInputOption=RAW`, {
+    method: "PUT",
+    body: JSON.stringify({
+      range: a1Range(PROPOSALS_TAB, `H${rowNumber}:I${rowNumber}`),
+      values: [["accepted", acceptedAt]]
+    })
+  });
+
+  return {
+    collection: saved,
+    proposal: {
+      ...proposal,
+      status: "accepted" as const,
+      acceptedAt
+    }
+  };
 }
 
 async function readStickerLayoutTab(config: GoogleConfig, tab: string) {
@@ -318,11 +416,11 @@ async function ensureSheetStructure(config: GoogleConfig): Promise<SheetStructur
     })
   });
 
-  await googleRequest(config, `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, "A1:G1"))}?valueInputOption=RAW`, {
+  await googleRequest(config, `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, "A1:I1"))}?valueInputOption=RAW`, {
     method: "PUT",
     body: JSON.stringify({
-      range: a1Range(PROPOSALS_TAB, "A1:G1"),
-      values: [["timestamp", "name", "contact", "hasForMe", "wantsFromMe", "note", "language"]]
+      range: a1Range(PROPOSALS_TAB, "A1:I1"),
+      values: [["timestamp", "name", "contact", "hasForMe", "wantsFromMe", "note", "language", "status", "acceptedAt"]]
     })
   });
 

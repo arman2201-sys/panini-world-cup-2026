@@ -486,6 +486,100 @@ textarea:focus {
   line-height: 1.4;
 }
 
+.proposal-admin-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.proposal-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+}
+
+.proposal-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+}
+
+.proposal-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.proposal-card-header div {
+  display: grid;
+  gap: 4px;
+}
+
+.proposal-card-header strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.proposal-card-header span,
+.proposal-meta,
+.proposal-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.proposal-status {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(217, 164, 65, 0.45);
+  border-radius: 999px;
+  color: #6b4a00;
+  background: #fff5d9;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.proposal-status.accepted {
+  border-color: rgba(20, 138, 75, 0.26);
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.proposal-card dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.proposal-card dl div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.proposal-card dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.proposal-card dd,
+.proposal-meta,
+.proposal-note {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.proposal-card dd {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
 .notice {
   margin: 0 0 18px;
   padding: 13px 15px;

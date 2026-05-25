@@ -51,7 +51,17 @@ export const text = {
     publicIntro: "Se hvilke stickers jeg mangler, og hvilke stickers jeg har klar til at bytte væk.",
     totalSelected: "Valgt i alt",
     clear: "Ryd valg",
-    lastUpdated: "Sidst opdateret"
+    lastUpdated: "Sidst opdateret",
+    tradeProposals: "Bytteforslag",
+    loadingProposals: "Henter bytteforslag...",
+    noTradeProposals: "Der er ingen bytteforslag endnu.",
+    proposalHasForMe: "Jeg får",
+    proposalWantsFromMe: "Jeg giver",
+    acceptTrade: "Acceptér bytte",
+    acceptingTrade: "Accepterer...",
+    tradeAccepted: "Byttet er accepteret, og listerne er opdateret.",
+    accepted: "Accepteret",
+    pending: "Afventer"
   },
   bs: {
     appName: "Panini FIFA World Cup 2026",
@@ -98,6 +108,16 @@ export const text = {
     publicIntro: "Pogledaj koje sličice mi nedostaju i koje sličice nudim za razmjenu.",
     totalSelected: "Ukupno odabrano",
     clear: "Očisti izbor",
-    lastUpdated: "Zadnje ažurirano"
+    lastUpdated: "Zadnje ažurirano",
+    tradeProposals: "Prijedlozi za razmjenu",
+    loadingProposals: "Učitavam prijedloge...",
+    noTradeProposals: "Još nema prijedloga za razmjenu.",
+    proposalHasForMe: "Dobijam",
+    proposalWantsFromMe: "Dajem",
+    acceptTrade: "Prihvati razmjenu",
+    acceptingTrade: "Prihvatam...",
+    tradeAccepted: "Razmjena je prihvaćena i liste su ažurirane.",
+    accepted: "Prihvaćeno",
+    pending: "Na čekanju"
   }
 } satisfies Record<Language, Record<string, string>>;
