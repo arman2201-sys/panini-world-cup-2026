@@ -1,0 +1,1 @@
+# panini-world-cup-2026
