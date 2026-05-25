@@ -10,6 +10,13 @@ import { normalizeCollectionState, type CollectionState } from "@/lib/stats";
 
 const emptyState = normalizeCollectionState();
 
+type GoogleDiagnostics = {
+  googleSheetId: string | null;
+  serviceAccountEmail: string | null;
+  privateKeyPresent: boolean;
+  privateKeyLooksValid: boolean;
+};
+
 export function AdminApp() {
   const [language, setLanguage] = useLanguage();
   const t = text[language];
@@ -20,6 +27,27 @@ export function AdminApp() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [shareUrl, setShareUrl] = useState("");
+  const [diagnostics, setDiagnostics] = useState<GoogleDiagnostics | null>(null);
+
+  async function loadDiagnostics(currentPassword = password) {
+    try {
+      const response = await fetch("/api/diagnostics/google", {
+        headers: {
+          "x-admin-password": currentPassword
+        },
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as GoogleDiagnostics;
+      setDiagnostics(data);
+    } catch {
+      setDiagnostics(null);
+    }
+  }
 
   useEffect(() => {
     setShareUrl(`${window.location.origin}/share`);
@@ -27,7 +55,9 @@ export function AdminApp() {
     if (storedPassword) {
       setPassword(storedPassword);
       setIsUnlocked(true);
+      loadDiagnostics(storedPassword);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -64,6 +94,7 @@ export function AdminApp() {
     event.preventDefault();
     window.sessionStorage.setItem("panini-admin-password", password);
     setIsUnlocked(true);
+    loadDiagnostics(password);
   }
 
   function toggleSticker(sticker: number, mode: "missing" | "trade") {
@@ -178,6 +209,21 @@ export function AdminApp() {
                     <strong>{counts.trade}</strong>
                   </div>
                 </div>
+                {diagnostics ? (
+                  <div className="diagnostics-box" aria-label="Google Sheets setup">
+                    <span>Google Sheets setup</span>
+                    <code>Sheet ID: {diagnostics.googleSheetId || "Mangler"}</code>
+                    <code>Service account: {diagnostics.serviceAccountEmail || "Mangler"}</code>
+                    <code>
+                      Private key:{" "}
+                      {diagnostics.privateKeyPresent
+                        ? diagnostics.privateKeyLooksValid
+                          ? "OK"
+                          : "Forkert format"
+                        : "Mangler"}
+                    </code>
+                  </div>
+                ) : null}
                 <button className="primary-button full" type="button" onClick={saveCollection} disabled={isSaving}>
                   {isSaving ? t.saving : t.save}
                 </button>

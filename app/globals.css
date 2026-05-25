@@ -457,6 +457,35 @@ textarea:focus {
   color: var(--muted);
 }
 
+.diagnostics-box {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fafc;
+}
+
+.diagnostics-box span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.diagnostics-box code {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .notice {
   margin: 0 0 18px;
   padding: 13px 15px;
