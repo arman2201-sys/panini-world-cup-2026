@@ -4,7 +4,8 @@ import { isValidStickerNumber } from "@/lib/album";
 import {
   acceptTradeProposalInGoogleSheets,
   appendTradeProposalToGoogleSheets,
-  readTradeProposalsFromGoogleSheets
+  readTradeProposalsFromGoogleSheets,
+  rejectTradeProposalInGoogleSheets
 } from "@/lib/googleSheets";
 import { uniqueSorted } from "@/lib/stats";
 
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       name?: string;
       contact?: string;
+      address?: string;
       note?: string;
       language?: string;
       hasForMe?: unknown[];
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
     await appendTradeProposalToGoogleSheets({
       name: cleanText(body.name),
       contact: cleanText(body.contact),
+      address: cleanText(body.address),
       note: cleanText(body.note),
       hasForMe,
       wantsFromMe,
@@ -62,9 +65,12 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as { rowNumber?: unknown };
+    const body = (await request.json()) as { rowNumber?: unknown; action?: unknown };
     const rowNumber = Number(body.rowNumber);
-    const result = await acceptTradeProposalInGoogleSheets(rowNumber);
+    const result =
+      body.action === "reject"
+        ? await rejectTradeProposalInGoogleSheets(rowNumber)
+        : await acceptTradeProposalInGoogleSheets(rowNumber);
 
     return NextResponse.json(result);
   } catch (error) {

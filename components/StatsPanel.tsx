@@ -7,15 +7,11 @@ import { text } from "@/lib/i18n";
 type Props = {
   state: CollectionState;
   language: Language;
-  shareUrl?: string;
 };
 
-export function StatsPanel({ state, language, shareUrl }: Props) {
+export function StatsPanel({ state, language }: Props) {
   const t = text[language];
   const stats = calculateStats(state);
-  const qrUrl = shareUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(shareUrl)}`
-    : "";
 
   return (
     <section className="panel stats-panel" aria-labelledby="stats-title">
@@ -56,16 +52,6 @@ export function StatsPanel({ state, language, shareUrl }: Props) {
           ))}
         </div>
       </div>
-
-      {shareUrl ? (
-        <div className="qr-row">
-          <div>
-            <h3>{t.qr}</h3>
-            <a href={shareUrl}>{shareUrl}</a>
-          </div>
-          <img className="qr-code" src={qrUrl} alt={t.qr} />
-        </div>
-      ) : null}
     </section>
   );
 }

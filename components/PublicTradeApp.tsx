@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Header } from "./Header";
+import { QRPanel } from "./QRPanel";
 import { PublicStickerPicker } from "./StickerAlbumGrid";
 import { StatsPanel } from "./StatsPanel";
 import { useLanguage } from "./useLanguage";
@@ -18,6 +19,7 @@ export function PublicTradeApp() {
   const [wantsFromMe, setWantsFromMe] = useState<number[]>([]);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
+  const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,6 +78,7 @@ export function PublicTradeApp() {
         body: JSON.stringify({
           name,
           contact,
+          address,
           note,
           hasForMe,
           wantsFromMe,
@@ -91,6 +94,7 @@ export function PublicTradeApp() {
       setWantsFromMe([]);
       setName("");
       setContact("");
+      setAddress("");
       setNote("");
       setMessage(t.proposalSent);
     } catch {
@@ -120,7 +124,7 @@ export function PublicTradeApp() {
         {warning ? <p className="notice warning">{t.minWarning}</p> : null}
 
         <div className="dashboard-grid">
-          <StatsPanel state={collection} language={language} shareUrl={shareUrl} />
+          <StatsPanel state={collection} language={language} />
           <form className="panel proposal-panel" onSubmit={submitProposal}>
             <div className="section-heading">
               <span className="kicker">{t.publicTitle}</span>
@@ -135,6 +139,10 @@ export function PublicTradeApp() {
               <input value={contact} onChange={(event) => setContact(event.target.value)} />
             </label>
             <label>
+              <span>{t.proposalAddress}</span>
+              <input value={address} onChange={(event) => setAddress(event.target.value)} />
+            </label>
+            <label>
               <span>{t.proposalNote}</span>
               <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} />
             </label>
@@ -144,11 +152,14 @@ export function PublicTradeApp() {
           </form>
         </div>
 
-        <section className="collection-section">
-          <div className="section-heading">
-            <span className="kicker">{t.selectedMissing}</span>
-            <h2>{t.visitorHas}</h2>
-          </div>
+        <details className="collection-section collapsible-section">
+          <summary>
+            <div className="section-heading">
+              <span className="kicker">{t.selectedMissing}</span>
+              <h2>{t.visitorHas}</h2>
+            </div>
+            <span className="summary-count">{sortedMissing.length}</span>
+          </summary>
           <PublicStickerPicker
             stickers={sortedMissing}
             selected={hasForMe}
@@ -157,13 +168,16 @@ export function PublicTradeApp() {
             emptyText={t.noMissing}
             onToggle={(sticker) => toggle(setHasForMe, hasForMe, sticker)}
           />
-        </section>
+        </details>
 
-        <section className="collection-section">
-          <div className="section-heading">
-            <span className="kicker">{t.selectedTrade}</span>
-            <h2>{t.visitorWants}</h2>
-          </div>
+        <details className="collection-section collapsible-section">
+          <summary>
+            <div className="section-heading">
+              <span className="kicker">{t.selectedTrade}</span>
+              <h2>{t.visitorWants}</h2>
+            </div>
+            <span className="summary-count">{sortedTrade.length}</span>
+          </summary>
           <PublicStickerPicker
             stickers={sortedTrade}
             selected={wantsFromMe}
@@ -172,7 +186,9 @@ export function PublicTradeApp() {
             emptyText={t.noTrade}
             onToggle={(sticker) => toggle(setWantsFromMe, wantsFromMe, sticker)}
           />
-        </section>
+        </details>
+
+        <QRPanel language={language} shareUrl={shareUrl} />
       </main>
     </>
   );

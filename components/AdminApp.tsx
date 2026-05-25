@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Header } from "./Header";
+import { QRPanel } from "./QRPanel";
 import { StatsPanel } from "./StatsPanel";
 import { StickerAlbumGrid } from "./StickerAlbumGrid";
 import { useLanguage } from "./useLanguage";
@@ -23,12 +24,14 @@ type TradeProposalRecord = {
   timestamp: string;
   name: string;
   contact: string;
+  address: string;
   note: string;
   hasForMe: number[];
   wantsFromMe: number[];
   language: string;
-  status: "pending" | "accepted";
+  status: "pending" | "accepted" | "rejected";
   acceptedAt: string;
+  rejectedAt: string;
 };
 
 export function AdminApp() {
@@ -45,6 +48,7 @@ export function AdminApp() {
   const [proposals, setProposals] = useState<TradeProposalRecord[]>([]);
   const [isLoadingProposals, setIsLoadingProposals] = useState(false);
   const [acceptingProposal, setAcceptingProposal] = useState<number | null>(null);
+  const [rejectingProposal, setRejectingProposal] = useState<number | null>(null);
 
   async function loadDiagnostics(currentPassword = password) {
     try {
@@ -226,6 +230,38 @@ export function AdminApp() {
     }
   }
 
+  async function rejectProposal(rowNumber: number) {
+    setRejectingProposal(rowNumber);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/proposals", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": password
+        },
+        body: JSON.stringify({ rowNumber, action: "reject" })
+      });
+
+      if (!response.ok) {
+        throw new Error("Reject failed");
+      }
+
+      const data = (await response.json()) as {
+        proposal: TradeProposalRecord;
+      };
+      setProposals((current) =>
+        current.map((proposal) => (proposal.rowNumber === rowNumber ? data.proposal : proposal))
+      );
+      setMessage(t.tradeRejected);
+    } catch {
+      setMessage(t.saveError);
+    } finally {
+      setRejectingProposal(null);
+    }
+  }
+
   return (
     <>
       <Header language={language} onLanguageChange={setLanguage} page="admin" />
@@ -269,7 +305,7 @@ export function AdminApp() {
             {isLoading ? <p className="notice">Loading...</p> : null}
 
             <div className="dashboard-grid">
-              <StatsPanel state={collection} language={language} shareUrl={shareUrl} />
+              <StatsPanel state={collection} language={language} />
               <section className="panel action-panel">
                 <div className="section-heading">
                   <span className="kicker">{t.publicShare}</span>
@@ -306,11 +342,14 @@ export function AdminApp() {
               </section>
             </div>
 
-            <section className="panel proposal-admin-panel" aria-labelledby="proposal-admin-title">
-              <div className="section-heading">
-                <span className="kicker">Google Sheets</span>
-                <h2 id="proposal-admin-title">{t.tradeProposals}</h2>
-              </div>
+            <details className="panel proposal-admin-panel collapsible-section" open>
+              <summary>
+                <div className="section-heading">
+                  <span className="kicker">Google Sheets</span>
+                  <h2 id="proposal-admin-title">{t.tradeProposals}</h2>
+                </div>
+                <span className="summary-count">{proposals.length}</span>
+              </summary>
               {isLoadingProposals ? <p className="empty-state">{t.loadingProposals}</p> : null}
               {!isLoadingProposals && proposals.length === 0 ? <p className="empty-state">{t.noTradeProposals}</p> : null}
               <div className="proposal-list">
@@ -322,10 +361,19 @@ export function AdminApp() {
                         <span>{formatDate(proposal.timestamp, language)}</span>
                       </div>
                       <span className={`proposal-status ${proposal.status}`}>
-                        {proposal.status === "accepted" ? t.accepted : t.pending}
+                        {proposal.status === "accepted"
+                          ? t.accepted
+                          : proposal.status === "rejected"
+                            ? t.rejected
+                            : t.pending}
                       </span>
                     </div>
                     {proposal.contact ? <p className="proposal-meta">{proposal.contact}</p> : null}
+                    {proposal.address ? (
+                      <p className="proposal-meta">
+                        <strong>{t.proposalAddress}:</strong> {proposal.address}
+                      </p>
+                    ) : null}
                     <dl>
                       <div>
                         <dt>{t.proposalHasForMe}</dt>
@@ -337,34 +385,60 @@ export function AdminApp() {
                       </div>
                     </dl>
                     {proposal.note ? <p className="proposal-note">{proposal.note}</p> : null}
-                    <button
-                      className="primary-button full"
-                      type="button"
-                      onClick={() => acceptProposal(proposal.rowNumber)}
-                      disabled={proposal.status === "accepted" || acceptingProposal === proposal.rowNumber}
-                    >
-                      {acceptingProposal === proposal.rowNumber ? t.acceptingTrade : t.acceptTrade}
-                    </button>
+                    <div className="proposal-actions">
+                      <button
+                        className="primary-button full"
+                        type="button"
+                        onClick={() => acceptProposal(proposal.rowNumber)}
+                        disabled={
+                          proposal.status !== "pending" ||
+                          acceptingProposal === proposal.rowNumber ||
+                          rejectingProposal === proposal.rowNumber
+                        }
+                      >
+                        {acceptingProposal === proposal.rowNumber ? t.acceptingTrade : t.acceptTrade}
+                      </button>
+                      <button
+                        className="secondary-button danger full"
+                        type="button"
+                        onClick={() => rejectProposal(proposal.rowNumber)}
+                        disabled={
+                          proposal.status !== "pending" ||
+                          acceptingProposal === proposal.rowNumber ||
+                          rejectingProposal === proposal.rowNumber
+                        }
+                      >
+                        {rejectingProposal === proposal.rowNumber ? t.rejectingTrade : t.rejectTrade}
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
-            </section>
+            </details>
 
-            <section className="collection-section">
-              <div className="section-heading">
-                <span className="kicker">{t.selectedMissing}</span>
-                <h2>{t.missing}</h2>
-              </div>
+            <details className="collection-section collapsible-section">
+              <summary>
+                <div className="section-heading">
+                  <span className="kicker">{t.selectedMissing}</span>
+                  <h2>{t.missing}</h2>
+                </div>
+                <span className="summary-count">{counts.missing}</span>
+              </summary>
               <StickerAlbumGrid mode="missing" state={collection} language={language} onToggle={toggleSticker} />
-            </section>
+            </details>
 
-            <section className="collection-section">
-              <div className="section-heading">
-                <span className="kicker">{t.selectedTrade}</span>
-                <h2>{t.trade}</h2>
-              </div>
+            <details className="collection-section collapsible-section">
+              <summary>
+                <div className="section-heading">
+                  <span className="kicker">{t.selectedTrade}</span>
+                  <h2>{t.trade}</h2>
+                </div>
+                <span className="summary-count">{counts.trade}</span>
+              </summary>
               <StickerAlbumGrid mode="trade" state={collection} language={language} onToggle={toggleSticker} />
-            </section>
+            </details>
+
+            <QRPanel language={language} shareUrl={shareUrl} />
           </>
         )}
       </main>
