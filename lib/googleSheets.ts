@@ -1,8 +1,10 @@
 import { createSign } from "crypto";
+import { isValidStickerNumber, range, TOTAL_STICKERS } from "./album";
 import { normalizeCollectionState, type CollectionState } from "./stats";
 
 const COLLECTION_TAB = "Collection";
 const PROPOSALS_TAB = "TradeProposals";
+const INITIALIZED_MARKER = "__initialized__";
 const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SHEETS_URL = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -48,11 +50,21 @@ export async function readCollectionFromGoogleSheets(): Promise<CollectionState>
   const missing: number[] = [];
   const trade: number[] = [];
   let updatedAt = "";
+  const rows = result.values ?? [];
 
-  for (const row of result.values ?? []) {
+  if (rows.length === 0) {
+    return normalizeCollectionState({ missing: range(1, TOTAL_STICKERS), updatedAt });
+  }
+
+  for (const row of rows) {
+    if (row[0] === INITIALIZED_MARKER) {
+      updatedAt = row[2] || updatedAt;
+      continue;
+    }
+
     const sticker = Number(row[0]);
     const status = row[1];
-    if (!Number.isInteger(sticker)) {
+    if (!isValidStickerNumber(sticker)) {
       continue;
     }
 
@@ -77,6 +89,7 @@ export async function writeCollectionToGoogleSheets(state: CollectionState) {
   const normalized = normalizeCollectionState(state);
   const updatedAt = new Date().toISOString();
   const values = [
+    [INITIALIZED_MARKER, "initialized", updatedAt],
     ...normalized.missing.map((sticker) => [sticker, "missing", updatedAt]),
     ...normalized.trade.map((sticker) => [sticker, "trade", updatedAt])
   ];
@@ -87,20 +100,18 @@ export async function writeCollectionToGoogleSheets(state: CollectionState) {
     body: JSON.stringify({})
   });
 
-  if (values.length > 0) {
-    await googleRequest(
-      config,
-      `/values/${encodeURIComponent(`${COLLECTION_TAB}!A2:C${values.length + 1}`)}?valueInputOption=RAW`,
-      {
-        method: "PUT",
-        body: JSON.stringify({
-          range: `${COLLECTION_TAB}!A2:C${values.length + 1}`,
-          majorDimension: "ROWS",
-          values
-        })
-      }
-    );
-  }
+  await googleRequest(
+    config,
+    `/values/${encodeURIComponent(`${COLLECTION_TAB}!A2:C${values.length + 1}`)}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        range: `${COLLECTION_TAB}!A2:C${values.length + 1}`,
+        majorDimension: "ROWS",
+        values
+      })
+    }
+  );
 
   return normalizeCollectionState({ ...normalized, updatedAt });
 }
