@@ -47,6 +47,7 @@ export function StickerAlbumGrid({ mode, state, language, onToggle }: AdminGridP
                 selected={selected}
                 status={mode}
                 onClick={(sticker) => onToggle(sticker, mode)}
+                getLabel={(sticker) => sticker - team.start + 1}
               />
             ))}
           </div>
@@ -102,6 +103,7 @@ export function PublicStickerPicker({ stickers, selected, color, language, empty
                   selected={selectedSet}
                   status={color}
                   onClick={onToggle}
+                  getLabel={(sticker) => sticker - team.start + 1}
                   compact
                 />
               ))}
@@ -119,6 +121,7 @@ function StickerRangeBlock({
   selected,
   status,
   onClick,
+  getLabel,
   compact = false
 }: {
   title: ReactNode;
@@ -126,6 +129,7 @@ function StickerRangeBlock({
   selected: Set<number>;
   status: StickerStatus;
   onClick: (sticker: number) => void;
+  getLabel?: (sticker: number) => number;
   compact?: boolean;
 }) {
   return (
@@ -142,7 +146,7 @@ function StickerRangeBlock({
               aria-pressed={isSelected}
               onClick={() => onClick(sticker)}
             >
-              {sticker}
+              {getLabel ? getLabel(sticker) : sticker}
             </button>
           );
         })}

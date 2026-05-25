@@ -1,7 +1,9 @@
 import { createSign } from "crypto";
-import { isValidStickerNumber, range, TOTAL_STICKERS } from "./album";
-import { normalizeCollectionState, type CollectionState } from "./stats";
+import { fwcRange, groups, isValidStickerNumber, range, TOTAL_STICKERS, type Team } from "./album";
+import { normalizeCollectionState, uniqueSorted, type CollectionState } from "./stats";
 
+const MISSING_TAB = "MANGLER";
+const TRADE_TAB = "BYTTES VÆK";
 const COLLECTION_TAB = "Collection";
 const PROPOSALS_TAB = "TradeProposals";
 const INITIALIZED_MARKER = "__initialized__";
@@ -20,7 +22,39 @@ type TokenCache = {
   expiresAt: number;
 };
 
+type SheetStructure = {
+  missingTab: string;
+  tradeTab: string;
+  hadAlbumTabs: boolean;
+};
+
+type LayoutEntry = {
+  key: string;
+  label: string;
+  start: number;
+  end: number;
+  team?: Team;
+};
+
 let tokenCache: TokenCache | undefined;
+
+const layoutEntries: LayoutEntry[] = [
+  {
+    key: "fwc",
+    label: "🏆 FWC",
+    start: fwcRange.start,
+    end: fwcRange.end
+  },
+  ...groups.flatMap((group) =>
+    group.teams.map((team) => ({
+      key: `team:${team.abbr}`,
+      label: `${team.flagCode.toUpperCase()} ${team.abbr}`,
+      start: team.start,
+      end: team.end,
+      team
+    }))
+  )
+];
 
 export type TradeProposal = {
   name: string;
@@ -41,10 +75,131 @@ export async function readCollectionFromGoogleSheets(): Promise<CollectionState>
     return normalizeCollectionState({ setupRequired: true });
   }
 
+  const structure = await ensureSheetStructure(config);
+
+  if (structure.hadAlbumTabs) {
+    const missing = await readStickerLayoutTab(config, structure.missingTab);
+    const trade = await readStickerLayoutTab(config, structure.tradeTab);
+
+    return normalizeCollectionState({
+      missing: missing.stickers,
+      trade: trade.stickers,
+      updatedAt: trade.updatedAt || missing.updatedAt
+    });
+  }
+
+  return readInternalCollection(config);
+}
+
+export async function writeCollectionToGoogleSheets(state: CollectionState) {
+  const config = requireGoogleConfig();
+  const normalized = normalizeCollectionState(state);
+  const updatedAt = new Date().toISOString();
+  const structure = await ensureSheetStructure(config);
+
+  await writeStickerLayoutTab(config, structure.missingTab, normalized.missing);
+  await writeStickerLayoutTab(config, structure.tradeTab, normalized.trade);
+  await writeInternalCollection(config, normalized, updatedAt);
+
+  return normalizeCollectionState({ ...normalized, updatedAt });
+}
+
+export async function appendTradeProposalToGoogleSheets(proposal: TradeProposal) {
+  const config = requireGoogleConfig();
   await ensureSheetStructure(config);
+  await googleRequest(
+    config,
+    `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, "A:G"))}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        values: [
+          [
+            new Date().toISOString(),
+            proposal.name,
+            proposal.contact,
+            proposal.hasForMe.join(", "),
+            proposal.wantsFromMe.join(", "),
+            proposal.note,
+            proposal.language
+          ]
+        ]
+      })
+    }
+  );
+}
+
+async function readStickerLayoutTab(config: GoogleConfig, tab: string) {
   const result = await googleRequest<{ values?: string[][] }>(
     config,
-    `/values/${encodeURIComponent(`${COLLECTION_TAB}!A2:C1000`)}`
+    `/values/${encodeURIComponent(a1Range(tab, "A1:B250"))}`
+  );
+
+  const stickers: number[] = [];
+  let updatedAt = "";
+
+  for (const row of result.values ?? []) {
+    const entry = findLayoutEntry(row[0] ?? "");
+    if (!entry) {
+      continue;
+    }
+
+    for (const sticker of parseStickerList(row[1] ?? "")) {
+      const absoluteSticker = toAbsoluteSticker(entry, sticker);
+      if (absoluteSticker) {
+        stickers.push(absoluteSticker);
+      }
+    }
+
+    if (row[2]) {
+      updatedAt = row[2];
+    }
+  }
+
+  return {
+    stickers: uniqueSorted(stickers),
+    updatedAt
+  };
+}
+
+async function writeStickerLayoutTab(config: GoogleConfig, tab: string, stickers: number[]) {
+  let rows = await readTabRows(config, tab);
+  let rowMap = getLayoutRowMap(rows);
+
+  if (rowMap.size < layoutEntries.length) {
+    await writeDefaultStickerLayout(config, tab);
+    rows = await readTabRows(config, tab);
+    rowMap = getLayoutRowMap(rows);
+  }
+
+  const data = layoutEntries
+    .map((entry) => {
+      const rowIndex = rowMap.get(entry.key);
+      if (rowIndex === undefined) {
+        return undefined;
+      }
+
+      return {
+        range: a1Range(tab, `B${rowIndex + 1}`),
+        majorDimension: "ROWS",
+        values: [[formatRelativeStickerList(entry, stickers)]]
+      };
+    })
+    .filter(Boolean);
+
+  await googleRequest(config, "/values:batchUpdate", {
+    method: "POST",
+    body: JSON.stringify({
+      valueInputOption: "RAW",
+      data
+    })
+  });
+}
+
+async function readInternalCollection(config: GoogleConfig): Promise<CollectionState> {
+  const result = await googleRequest<{ values?: string[][] }>(
+    config,
+    `/values/${encodeURIComponent(a1Range(COLLECTION_TAB, "A2:C1000"))}`
   );
 
   const missing: number[] = [];
@@ -84,70 +239,53 @@ export async function readCollectionFromGoogleSheets(): Promise<CollectionState>
   return normalizeCollectionState({ missing, trade, updatedAt });
 }
 
-export async function writeCollectionToGoogleSheets(state: CollectionState) {
-  const config = requireGoogleConfig();
+async function writeInternalCollection(config: GoogleConfig, state: CollectionState, updatedAt: string) {
   const normalized = normalizeCollectionState(state);
-  const updatedAt = new Date().toISOString();
   const values = [
     [INITIALIZED_MARKER, "initialized", updatedAt],
     ...normalized.missing.map((sticker) => [sticker, "missing", updatedAt]),
     ...normalized.trade.map((sticker) => [sticker, "trade", updatedAt])
   ];
 
-  await ensureSheetStructure(config);
-  await googleRequest(config, `/values/${encodeURIComponent(`${COLLECTION_TAB}!A2:C1000`)}:clear`, {
+  await googleRequest(config, `/values/${encodeURIComponent(a1Range(COLLECTION_TAB, "A2:C1000"))}:clear`, {
     method: "POST",
     body: JSON.stringify({})
   });
 
   await googleRequest(
     config,
-    `/values/${encodeURIComponent(`${COLLECTION_TAB}!A2:C${values.length + 1}`)}?valueInputOption=RAW`,
+    `/values/${encodeURIComponent(a1Range(COLLECTION_TAB, `A2:C${values.length + 1}`))}?valueInputOption=RAW`,
     {
       method: "PUT",
       body: JSON.stringify({
-        range: `${COLLECTION_TAB}!A2:C${values.length + 1}`,
+        range: a1Range(COLLECTION_TAB, `A2:C${values.length + 1}`),
         majorDimension: "ROWS",
         values
       })
     }
   );
-
-  return normalizeCollectionState({ ...normalized, updatedAt });
 }
 
-export async function appendTradeProposalToGoogleSheets(proposal: TradeProposal) {
-  const config = requireGoogleConfig();
-  await ensureSheetStructure(config);
-  await googleRequest(
-    config,
-    `/values/${encodeURIComponent(`${PROPOSALS_TAB}!A:G`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        values: [
-          [
-            new Date().toISOString(),
-            proposal.name,
-            proposal.contact,
-            proposal.hasForMe.join(", "),
-            proposal.wantsFromMe.join(", "),
-            proposal.note,
-            proposal.language
-          ]
-        ]
-      })
-    }
-  );
-}
-
-async function ensureSheetStructure(config: GoogleConfig) {
+async function ensureSheetStructure(config: GoogleConfig): Promise<SheetStructure> {
   const metadata = await googleRequest<{ sheets?: Array<{ properties?: { title?: string } }> }>(
     config,
     "?fields=sheets.properties.title"
   );
-  const existingTabs = new Set((metadata.sheets ?? []).map((sheet) => sheet.properties?.title).filter(Boolean));
+  const titles = (metadata.sheets ?? []).map((sheet) => sheet.properties?.title).filter(Boolean) as string[];
+  const missingTab = findExistingTab(titles, MISSING_TAB) ?? MISSING_TAB;
+  const tradeTab = findExistingTab(titles, TRADE_TAB) ?? TRADE_TAB;
+  const hadMissingTab = Boolean(findExistingTab(titles, MISSING_TAB));
+  const hadTradeTab = Boolean(findExistingTab(titles, TRADE_TAB));
+  const existingTabs = new Set(titles);
   const requests = [];
+
+  if (!hadMissingTab) {
+    requests.push({ addSheet: { properties: { title: MISSING_TAB } } });
+  }
+
+  if (!hadTradeTab) {
+    requests.push({ addSheet: { properties: { title: TRADE_TAB } } });
+  }
 
   if (!existingTabs.has(COLLECTION_TAB)) {
     requests.push({ addSheet: { properties: { title: COLLECTION_TAB } } });
@@ -164,21 +302,142 @@ async function ensureSheetStructure(config: GoogleConfig) {
     });
   }
 
-  await googleRequest(config, `/values/${encodeURIComponent(`${COLLECTION_TAB}!A1:C1`)}?valueInputOption=RAW`, {
+  if (!hadMissingTab) {
+    await writeDefaultStickerLayout(config, MISSING_TAB);
+  }
+
+  if (!hadTradeTab) {
+    await writeDefaultStickerLayout(config, TRADE_TAB);
+  }
+
+  await googleRequest(config, `/values/${encodeURIComponent(a1Range(COLLECTION_TAB, "A1:C1"))}?valueInputOption=RAW`, {
     method: "PUT",
     body: JSON.stringify({
-      range: `${COLLECTION_TAB}!A1:C1`,
+      range: a1Range(COLLECTION_TAB, "A1:C1"),
       values: [["sticker", "status", "updatedAt"]]
     })
   });
 
-  await googleRequest(config, `/values/${encodeURIComponent(`${PROPOSALS_TAB}!A1:G1`)}?valueInputOption=RAW`, {
+  await googleRequest(config, `/values/${encodeURIComponent(a1Range(PROPOSALS_TAB, "A1:G1"))}?valueInputOption=RAW`, {
     method: "PUT",
     body: JSON.stringify({
-      range: `${PROPOSALS_TAB}!A1:G1`,
+      range: a1Range(PROPOSALS_TAB, "A1:G1"),
       values: [["timestamp", "name", "contact", "hasForMe", "wantsFromMe", "note", "language"]]
     })
   });
+
+  return {
+    missingTab,
+    tradeTab,
+    hadAlbumTabs: hadMissingTab || hadTradeTab
+  };
+}
+
+async function readTabRows(config: GoogleConfig, tab: string) {
+  const result = await googleRequest<{ values?: string[][] }>(
+    config,
+    `/values/${encodeURIComponent(a1Range(tab, "A1:B250"))}`
+  );
+  return result.values ?? [];
+}
+
+async function writeDefaultStickerLayout(config: GoogleConfig, tab: string) {
+  const values = buildDefaultStickerLayout(tab);
+
+  await googleRequest(config, `/values/${encodeURIComponent(a1Range(tab, `A1:B${values.length}`))}?valueInputOption=RAW`, {
+    method: "PUT",
+    body: JSON.stringify({
+      range: a1Range(tab, `A1:B${values.length}`),
+      majorDimension: "ROWS",
+      values
+    })
+  });
+}
+
+function buildDefaultStickerLayout(tab: string) {
+  const values: string[][] = [
+    [tab, ""],
+    ["", ""],
+    ["SÆRSKILTE STICKERS", ""],
+    ["Type", "Sticker numre"],
+    ["🏆 FWC", ""],
+    ["", ""]
+  ];
+
+  for (const group of groups) {
+    values.push([`Gruppe ${group.letter}`, ""]);
+    values.push(["Land", ""]);
+    for (const team of group.teams) {
+      values.push([`${team.flagCode.toUpperCase()} ${team.abbr}`, ""]);
+    }
+    values.push(["", ""]);
+  }
+
+  return values;
+}
+
+function getLayoutRowMap(rows: string[][]) {
+  const rowMap = new Map<string, number>();
+
+  rows.forEach((row, index) => {
+    const entry = findLayoutEntry(row[0] ?? "");
+    if (entry) {
+      rowMap.set(entry.key, index);
+    }
+  });
+
+  return rowMap;
+}
+
+function findLayoutEntry(label: string) {
+  const normalized = label.toUpperCase();
+  if (/\bFWC\b/.test(normalized)) {
+    return layoutEntries[0];
+  }
+
+  return layoutEntries.find((entry) => entry.team && new RegExp(`\\b${entry.team.abbr}\\b`).test(normalized));
+}
+
+function parseStickerList(value: string) {
+  return (value.match(/\d+/g) ?? []).map(Number);
+}
+
+function toAbsoluteSticker(entry: LayoutEntry, sticker: number) {
+  if (entry.key === "fwc") {
+    return sticker >= fwcRange.start && sticker <= fwcRange.end ? sticker : undefined;
+  }
+
+  if (sticker >= 1 && sticker <= entry.end - entry.start + 1) {
+    return entry.start + sticker - 1;
+  }
+
+  return sticker >= entry.start && sticker <= entry.end ? sticker : undefined;
+}
+
+function formatRelativeStickerList(entry: LayoutEntry, stickers: number[]) {
+  return uniqueSorted(stickers)
+    .filter((sticker) => sticker >= entry.start && sticker <= entry.end)
+    .map((sticker) => (entry.key === "fwc" ? sticker : sticker - entry.start + 1))
+    .join(", ");
+}
+
+function a1Range(sheetName: string, rangePart: string) {
+  return `'${sheetName.replace(/'/g, "''")}'!${rangePart}`;
+}
+
+function findExistingTab(titles: string[], desired: string) {
+  const normalizedDesired = normalizeTabTitle(desired);
+  return titles.find((title) => normalizeTabTitle(title) === normalizedDesired);
+}
+
+function normalizeTabTitle(value: string) {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/Æ/g, "AE")
+    .replace(/Ø/g, "O")
+    .replace(/Å/g, "AA")
+    .replace(/\s+/g, " ");
 }
 
 async function googleRequest<T = unknown>(config: GoogleConfig, path: string, init: RequestInit = {}): Promise<T> {
