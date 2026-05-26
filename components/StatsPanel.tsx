@@ -26,7 +26,7 @@ export function StatsPanel({ state, language }: Props) {
           <p>
             {stats.collectedCount} / {stats.total}
           </p>
-          {state.updatedAt ? <small>{t.lastUpdated}: {formatDate(state.updatedAt, language)}</small> : null}
+          <small>{t.lastUpdated}: {state.updatedAt ? formatDate(state.updatedAt, language) : t.notRecorded}</small>
         </div>
         <div className="progress-track" aria-label={`${t.albumProgress}: ${stats.progress}%`}>
           <span style={{ width: `${stats.progress}%` }} />
