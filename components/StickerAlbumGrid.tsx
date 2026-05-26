@@ -3,7 +3,9 @@
 import type { ReactNode } from "react";
 import { fwcRange, groups, range, stickerGroupLabel, stickerMatchesSearch, type Language, type Team } from "@/lib/album";
 import { text } from "@/lib/i18n";
-import type { CollectionState, StickerStatus } from "@/lib/stats";
+import { getStickerStatus, type CollectionState, type StickerStatus } from "@/lib/stats";
+
+type StickerVisualStatus = StickerStatus | "unselected";
 
 type AdminGridProps = {
   mode: "missing" | "trade";
@@ -25,7 +27,6 @@ type PublicGridProps = {
 
 export function StickerAlbumGrid({ mode, state, language, searchTerm = "", onToggle }: AdminGridProps) {
   const t = text[language];
-  const selected = new Set(mode === "missing" ? state.missing : state.trade);
   const query = searchTerm.trim();
   const shouldOpen = Boolean(query);
   const fwcStickers = range(fwcRange.start, fwcRange.end).filter((sticker) =>
@@ -43,8 +44,7 @@ export function StickerAlbumGrid({ mode, state, language, searchTerm = "", onTog
           <StickerRangeBlock
             title={t.fwc}
             stickers={fwcStickers}
-            selected={selected}
-            status={mode}
+            getStatus={(sticker) => getStickerStatus(state, sticker)}
             onClick={(sticker) => onToggle(sticker, mode)}
             compact
           />
@@ -77,8 +77,7 @@ export function StickerAlbumGrid({ mode, state, language, searchTerm = "", onTog
                   key={team.id}
                   title={<TeamLabel team={team} language={language} />}
                   stickers={stickers}
-                  selected={selected}
-                  status={mode}
+                  getStatus={(sticker) => getStickerStatus(state, sticker)}
                   onClick={(sticker) => onToggle(sticker, mode)}
                   getLabel={(sticker) => sticker - team.start + 1}
                 />
@@ -123,8 +122,7 @@ export function PublicStickerPicker({
           <StickerRangeBlock
             title={text[language].fwc}
             stickers={fwcStickers}
-            selected={selectedSet}
-            status={color}
+            getStatus={(sticker) => (selectedSet.has(sticker) ? color : "unselected")}
             onClick={onToggle}
             compact
           />
@@ -159,8 +157,7 @@ export function PublicStickerPicker({
                   key={team.id}
                   title={<TeamLabel team={team} language={language} />}
                   stickers={teamStickers}
-                  selected={selectedSet}
-                  status={color}
+                  getStatus={(sticker) => (selectedSet.has(sticker) ? color : "unselected")}
                   onClick={onToggle}
                   getLabel={(sticker) => sticker - team.start + 1}
                   compact
@@ -177,16 +174,14 @@ export function PublicStickerPicker({
 function StickerRangeBlock({
   title,
   stickers,
-  selected,
-  status,
+  getStatus,
   onClick,
   getLabel,
   compact = false
 }: {
   title: ReactNode;
   stickers: number[];
-  selected: Set<number>;
-  status: StickerStatus;
+  getStatus: (sticker: number) => StickerVisualStatus;
   onClick: (sticker: number) => void;
   getLabel?: (sticker: number) => number;
   compact?: boolean;
@@ -196,11 +191,12 @@ function StickerRangeBlock({
       <h4>{title}</h4>
       <div className="sticker-buttons">
         {stickers.map((sticker) => {
-          const isSelected = selected.has(sticker);
+          const status = getStatus(sticker);
+          const isSelected = status === "missing" || status === "trade";
           return (
             <button
               key={sticker}
-              className={isSelected ? `sticker-button ${status}` : "sticker-button neutral"}
+              className={`sticker-button ${status}`}
               type="button"
               aria-pressed={isSelected}
               onClick={() => onClick(sticker)}

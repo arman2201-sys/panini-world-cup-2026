@@ -50,13 +50,10 @@ export function CardRegistrationPanel({
           <i className="guide-dot missing" /> {t.registerGuideMissing}
         </span>
         <span>
+          <i className="guide-dot collected" /> {t.registerGuideCollected}
+        </span>
+        <span>
           <i className="guide-dot duplicate" /> {t.registerGuideDuplicate}
-        </span>
-        <span>
-          <i className="guide-dot selected" /> {t.registerGuideSelected}
-        </span>
-        <span>
-          <i className="guide-dot neutral" /> {t.registerGuideUnselected}
         </span>
       </div>
 
@@ -250,9 +247,19 @@ function RegistrationButtons({
         const isMissing = missingSet.has(sticker);
         const isTrade = tradeSet.has(sticker);
         const isDuplicate = isSelected && !isMissing;
+        const status = isSelected
+          ? isMissing
+            ? "collected"
+            : "duplicate"
+          : isMissing
+            ? "missing"
+            : isTrade
+              ? "duplicate"
+              : "collected";
         const className = [
           "register-card-button",
-          isSelected ? "selected" : isMissing ? "missing" : isTrade ? "duplicate" : "neutral",
+          status,
+          isSelected ? "selected" : "",
           isDuplicate ? "selected-duplicate" : ""
         ]
           .filter(Boolean)

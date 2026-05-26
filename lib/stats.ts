@@ -7,7 +7,7 @@ export type CollectionState = {
   setupRequired?: boolean;
 };
 
-export type StickerStatus = "missing" | "trade" | "neutral";
+export type StickerStatus = "missing" | "trade" | "collected";
 
 export function normalizeCollectionState(input: Partial<CollectionState> = {}): CollectionState {
   return {
@@ -33,7 +33,7 @@ export function getStickerStatus(state: CollectionState, sticker: number): Stick
     return "trade";
   }
 
-  return "neutral";
+  return "collected";
 }
 
 export function calculateStats(state: CollectionState) {

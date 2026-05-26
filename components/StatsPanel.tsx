@@ -35,8 +35,8 @@ export function StatsPanel({ state, language }: Props) {
 
       <div className="stat-grid">
         <StatCard label={t.missingCount} value={stats.missingCount} tone="red" />
-        <StatCard label={t.tradeCount} value={stats.tradeCount} tone="green" />
-        <StatCard label={t.collectedCount} value={stats.collectedCount} tone="blue" />
+        <StatCard label={t.tradeCount} value={stats.tradeCount} tone="blue" />
+        <StatCard label={t.collectedCount} value={stats.collectedCount} tone="green" />
         <StatCard
           label={t.bestGroup}
           value={`${stickerGroupLabel(stats.bestGroup.letter, language)} · ${stats.bestGroup.progress}%`}
