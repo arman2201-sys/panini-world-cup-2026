@@ -77,6 +77,7 @@ export const text = {
     tradeSummary: "Opsummering",
     offers: "Tilbyder",
     wants: "Ønsker",
+    proposalHelper: "Har du nogle klistermærker jeg mangler? Send et forslag her.",
     copyTradeRequest: "Kopiér bytteforslag",
     copiedTradeRequest: "Bytteforslaget er kopieret.",
     totalStickers: "klistermærker"
@@ -151,6 +152,7 @@ export const text = {
     tradeSummary: "Pregled",
     offers: "Nudi",
     wants: "Želi",
+    proposalHelper: "Imaš neke sličice koje mi nedostaju? Pošalji prijedlog ovdje.",
     copyTradeRequest: "Kopiraj prijedlog",
     copiedTradeRequest: "Prijedlog je kopiran.",
     totalStickers: "sličica"
@@ -225,6 +227,7 @@ export const text = {
     tradeSummary: "Summary",
     offers: "Offers",
     wants: "Wants",
+    proposalHelper: "Do you have stickers I am missing? Send a proposal here.",
     copyTradeRequest: "Copy trade request",
     copiedTradeRequest: "Trade request copied.",
     totalStickers: "stickers"
