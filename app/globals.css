@@ -673,18 +673,6 @@ a {
   line-height: 1.45;
 }
 
-.register-counter {
-  flex: 0 0 auto;
-  min-width: 148px;
-  padding: 13px 14px;
-  border: 1px solid rgba(217, 164, 65, 0.42);
-  border-radius: var(--radius);
-  color: var(--blue-950);
-  background: var(--gold-light);
-  font-weight: 900;
-  text-align: center;
-}
-
 .register-guide {
   position: sticky;
   top: 82px;
@@ -837,10 +825,63 @@ a {
   bottom: 0;
   z-index: 11;
   display: grid;
-  grid-template-columns: minmax(120px, 0.45fr) minmax(160px, 1fr);
+  grid-template-columns: minmax(150px, 0.7fr) minmax(220px, 1fr);
+  gap: 12px;
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0 solid transparent;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(7, 26, 58, 0.98), rgba(18, 78, 184, 0.95)),
+    repeating-linear-gradient(116deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 30px);
+  box-shadow: 0 18px 38px rgba(7, 26, 58, 0.24);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(14px);
+  transition:
+    max-height 240ms ease,
+    margin-top 180ms ease,
+    padding 180ms ease,
+    border-width 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.register-actions.visible {
+  max-height: 160px;
+  margin-top: 14px;
+  padding: 12px;
+  border-width: 1px;
+  border-color: rgba(255, 229, 163, 0.32);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.register-actions-counter {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 229, 163, 0.46);
+  border-radius: 7px;
+  color: var(--gold-light);
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 950;
+  text-align: center;
+}
+
+.register-action-buttons {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.45fr) minmax(140px, 1fr);
   gap: 10px;
-  padding-top: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.96) 30%);
+}
+
+.register-action-buttons .secondary-button,
+.register-action-buttons .primary-button {
+  min-height: 52px;
 }
 
 label {
@@ -1379,21 +1420,17 @@ textarea:focus {
     justify-content: flex-start;
   }
 
-  .register-panel-header,
-  .register-actions {
-    grid-template-columns: 1fr;
-  }
-
   .register-panel-header {
     flex-direction: column;
   }
 
-  .register-counter {
-    width: 100%;
-  }
-
   .register-guide {
     top: 74px;
+  }
+
+  .register-actions,
+  .register-action-buttons {
+    grid-template-columns: 1fr;
   }
 
   .register-card-buttons {

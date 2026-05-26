@@ -31,6 +31,7 @@ export function CardRegistrationPanel({
   const selectedSet = new Set(selectedCards);
   const query = searchTerm.trim();
   const shouldOpen = Boolean(query);
+  const hasSelectedCards = selectedCards.length > 0;
   const selectedText = t.registerSelectedCounter.replace("{count}", String(selectedCards.length));
 
   return (
@@ -41,9 +42,6 @@ export function CardRegistrationPanel({
           <h2 id="register-cards-title">{t.registerCardsTitle}</h2>
           <p>{t.registerCardsHelper}</p>
           <small>{t.registerCardsLogic}</small>
-        </div>
-        <div className="register-counter" aria-live="polite">
-          {selectedText}
         </div>
       </div>
 
@@ -125,13 +123,18 @@ export function CardRegistrationPanel({
         })}
       </div>
 
-      <div className="register-actions">
-        <button className="secondary-button" type="button" onClick={onCancel} disabled={selectedCards.length === 0 || isSaving}>
-          {t.registerCancel}
-        </button>
-        <button className="primary-button" type="button" onClick={onSave} disabled={selectedCards.length === 0 || isSaving}>
-          {isSaving ? t.saving : t.registerSave}
-        </button>
+      <div className={hasSelectedCards ? "register-actions visible" : "register-actions"} aria-hidden={!hasSelectedCards}>
+        <div className="register-actions-counter" aria-live="polite">
+          {selectedText}
+        </div>
+        <div className="register-action-buttons">
+          <button className="secondary-button" type="button" onClick={onCancel} disabled={!hasSelectedCards || isSaving}>
+            {t.registerCancel}
+          </button>
+          <button className="primary-button" type="button" onClick={onSave} disabled={!hasSelectedCards || isSaving}>
+            {isSaving ? t.saving : t.registerSave}
+          </button>
+        </div>
       </div>
     </section>
   );
