@@ -26,6 +26,7 @@ export function StatsPanel({ state, language }: Props) {
           <p>
             {stats.collectedCount} / {stats.total}
           </p>
+          {state.updatedAt ? <small>{t.lastUpdated}: {formatDate(state.updatedAt, language)}</small> : null}
         </div>
         <div className="progress-track" aria-label={`${t.albumProgress}: ${stats.progress}%`}>
           <span style={{ width: `${stats.progress}%` }} />
@@ -75,4 +76,17 @@ function MiniBar({ label, value }: { label: string; value: number }) {
       <b>{value}%</b>
     </div>
   );
+}
+
+function formatDate(value: string, language: Language) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const locale = language === "da" ? "da-DK" : language === "bs" ? "bs-BA" : "en-GB";
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
 }

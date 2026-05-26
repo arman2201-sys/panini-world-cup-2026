@@ -133,6 +133,9 @@ a {
 }
 
 .language-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 10px;
   cursor: pointer;
 }
@@ -317,6 +320,13 @@ a {
 .progress-hero p {
   margin: 6px 0 0;
   color: rgba(255, 255, 255, 0.75);
+}
+
+.progress-hero small {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
 }
 
 .progress-track,
@@ -601,6 +611,43 @@ textarea:focus {
   background: white;
 }
 
+.trade-summary {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+}
+
+.trade-summary h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.trade-summary dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.trade-summary dl div {
+  display: grid;
+  gap: 4px;
+}
+
+.trade-summary dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.trade-summary dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .collapsible-section {
   overflow: hidden;
 }
@@ -640,6 +687,10 @@ textarea:focus {
   background: var(--surface-strong);
   font-weight: 900;
   text-align: center;
+}
+
+.search-field {
+  margin-bottom: 16px;
 }
 
 .proposal-card dt {
@@ -686,13 +737,54 @@ textarea:focus {
   gap: 12px;
 }
 
-.group-block > h3 {
+.group-block > h3,
+.accordion-group > summary {
   padding: 12px 14px;
   border-left: 5px solid var(--gold);
   border-radius: var(--radius);
   color: white;
   background: var(--blue-900);
   font-size: 1.1rem;
+}
+
+.accordion-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+}
+
+.accordion-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.accordion-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-group > summary h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.accordion-group > summary .summary-count {
+  min-width: 36px;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--blue-950);
+  background: var(--gold-light);
+}
+
+.accordion-group[open] {
+  padding-bottom: 12px;
+}
+
+.accordion-group[open] > .team-grid,
+.accordion-group[open] > .sticker-block {
+  margin: 12px;
 }
 
 .team-grid {

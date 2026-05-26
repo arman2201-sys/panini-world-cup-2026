@@ -19,9 +19,10 @@ export function LanguageSwitcher({ language, onChange }: Props) {
             onClick={() => onChange(item.code)}
             aria-pressed={item.code === language}
           >
-            {item.label}
+            <span aria-hidden="true">{item.flag}</span>
+            <span>{item.label}</span>
           </button>
-          {index === 0 ? <span className="language-divider">|</span> : null}
+          {index < languages.length - 1 ? <span className="language-divider">|</span> : null}
         </span>
       ))}
     </div>

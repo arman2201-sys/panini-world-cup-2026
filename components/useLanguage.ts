@@ -8,7 +8,7 @@ export function useLanguage() {
 
   useEffect(() => {
     const stored = window.localStorage.getItem("panini-language");
-    if (stored === "da" || stored === "bs") {
+    if (stored === "da" || stored === "bs" || stored === "en") {
       setLanguage(stored);
     }
   }, []);

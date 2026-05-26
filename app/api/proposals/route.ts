@@ -38,19 +38,24 @@ export async function POST(request: NextRequest) {
     };
     const hasForMe = validateStickerArray(body.hasForMe);
     const wantsFromMe = validateStickerArray(body.wantsFromMe);
+    const name = cleanText(body.name);
 
     if (hasForMe.length + wantsFromMe.length < 5) {
       return NextResponse.json({ error: "At least 5 stickers must be selected." }, { status: 400 });
     }
 
+    if (!name) {
+      return NextResponse.json({ error: "Name is required." }, { status: 400 });
+    }
+
     await appendTradeProposalToGoogleSheets({
-      name: cleanText(body.name),
+      name,
       contact: cleanText(body.contact),
       address: cleanText(body.address),
       note: cleanText(body.note),
       hasForMe,
       wantsFromMe,
-      language: body.language === "bs" ? "bs" : "da"
+      language: body.language === "bs" || body.language === "en" ? body.language : "da"
     });
 
     return NextResponse.json({ ok: true });

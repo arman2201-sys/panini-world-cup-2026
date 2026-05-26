@@ -26,10 +26,10 @@ export function Header({ language, onLanguageChange, page }: Props) {
       <div className="header-actions">
         <nav className="header-nav" aria-label="Navigation">
           <Link className={page === "admin" ? "nav-link active" : "nav-link"} href="/">
-            Admin
+            {t.adminNav}
           </Link>
           <Link className={page === "share" ? "nav-link active" : "nav-link"} href="/share">
-            Share
+            {t.shareNav}
           </Link>
         </nav>
         <LanguageSwitcher language={language} onChange={onLanguageChange} />

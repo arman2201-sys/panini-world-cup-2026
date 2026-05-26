@@ -6,7 +6,7 @@ import { QRPanel } from "./QRPanel";
 import { StatsPanel } from "./StatsPanel";
 import { StickerAlbumGrid } from "./StickerAlbumGrid";
 import { useLanguage } from "./useLanguage";
-import { fwcRange, groups, type Language } from "@/lib/album";
+import { formatStickerReferences, type Language } from "@/lib/album";
 import { text } from "@/lib/i18n";
 import { normalizeCollectionState, type CollectionState } from "@/lib/stats";
 
@@ -49,6 +49,8 @@ export function AdminApp() {
   const [isLoadingProposals, setIsLoadingProposals] = useState(false);
   const [acceptingProposal, setAcceptingProposal] = useState<number | null>(null);
   const [rejectingProposal, setRejectingProposal] = useState<number | null>(null);
+  const [missingSearch, setMissingSearch] = useState("");
+  const [tradeSearch, setTradeSearch] = useState("");
 
   async function loadDiagnostics(currentPassword = password) {
     try {
@@ -270,7 +272,7 @@ export function AdminApp() {
           <div>
             <span className="kicker">Version 1</span>
             <h1>{t.adminTitle}</h1>
-            <p>{t.fwc} · 980 stickers · Google Sheets</p>
+            <p>{t.fwc} · 980 {t.totalStickers} · Google Sheets</p>
           </div>
           <a className="primary-link" href="/share">
             {t.openPublic}
@@ -377,11 +379,11 @@ export function AdminApp() {
                     <dl>
                       <div>
                         <dt>{t.proposalHasForMe}</dt>
-                        <dd>{formatStickerList(proposal.hasForMe, language)}</dd>
+                        <dd>{formatStickerReferences(proposal.hasForMe, language) || "-"}</dd>
                       </div>
                       <div>
                         <dt>{t.proposalWantsFromMe}</dt>
-                        <dd>{formatStickerList(proposal.wantsFromMe, language)}</dd>
+                        <dd>{formatStickerReferences(proposal.wantsFromMe, language) || "-"}</dd>
                       </div>
                     </dl>
                     {proposal.note ? <p className="proposal-note">{proposal.note}</p> : null}
@@ -424,7 +426,22 @@ export function AdminApp() {
                 </div>
                 <span className="summary-count">{counts.missing}</span>
               </summary>
-              <StickerAlbumGrid mode="missing" state={collection} language={language} onToggle={toggleSticker} />
+              <label className="search-field">
+                <span>{t.searchPlaceholder}</span>
+                <input
+                  type="search"
+                  value={missingSearch}
+                  onChange={(event) => setMissingSearch(event.target.value)}
+                  placeholder={t.searchPlaceholder}
+                />
+              </label>
+              <StickerAlbumGrid
+                mode="missing"
+                state={collection}
+                language={language}
+                searchTerm={missingSearch}
+                onToggle={toggleSticker}
+              />
             </details>
 
             <details className="collection-section collapsible-section">
@@ -435,7 +452,22 @@ export function AdminApp() {
                 </div>
                 <span className="summary-count">{counts.trade}</span>
               </summary>
-              <StickerAlbumGrid mode="trade" state={collection} language={language} onToggle={toggleSticker} />
+              <label className="search-field">
+                <span>{t.searchPlaceholder}</span>
+                <input
+                  type="search"
+                  value={tradeSearch}
+                  onChange={(event) => setTradeSearch(event.target.value)}
+                  placeholder={t.searchPlaceholder}
+                />
+              </label>
+              <StickerAlbumGrid
+                mode="trade"
+                state={collection}
+                language={language}
+                searchTerm={tradeSearch}
+                onToggle={toggleSticker}
+              />
             </details>
 
             <QRPanel language={language} shareUrl={shareUrl} />
@@ -444,45 +476,6 @@ export function AdminApp() {
       </main>
     </>
   );
-}
-
-function formatStickerList(stickers: number[], language: Language) {
-  if (stickers.length === 0) {
-    return "-";
-  }
-
-  const stickerSet = new Set(stickers);
-  const sections: string[] = [];
-  const fwcStickers = rangeFromSet(stickerSet, fwcRange.start, fwcRange.end);
-
-  if (fwcStickers.length > 0) {
-    sections.push(`FWC: ${fwcStickers.join(", ")}`);
-  }
-
-  for (const group of groups) {
-    for (const team of group.teams) {
-      const teamStickers = rangeFromSet(stickerSet, team.start, team.end).map(
-        (sticker) => sticker - team.start + 1
-      );
-
-      if (teamStickers.length > 0) {
-        sections.push(`${team.abbr}: ${teamStickers.join(", ")}`);
-      }
-    }
-  }
-
-  return sections.length > 0 ? sections.join(" · ") : stickers.join(", ");
-}
-
-function rangeFromSet(stickers: Set<number>, start: number, end: number) {
-  const values: number[] = [];
-  for (let sticker = start; sticker <= end; sticker += 1) {
-    if (stickers.has(sticker)) {
-      values.push(sticker);
-    }
-  }
-
-  return values;
 }
 
 function formatDate(value: string, language: Language) {
@@ -495,7 +488,8 @@ function formatDate(value: string, language: Language) {
     return value;
   }
 
-  return new Intl.DateTimeFormat(language === "da" ? "da-DK" : "bs-BA", {
+  const locale = language === "da" ? "da-DK" : language === "bs" ? "bs-BA" : "en-GB";
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "short",
     timeStyle: "short"
   }).format(date);

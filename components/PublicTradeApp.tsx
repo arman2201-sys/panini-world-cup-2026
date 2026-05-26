@@ -6,6 +6,7 @@ import { QRPanel } from "./QRPanel";
 import { PublicStickerPicker } from "./StickerAlbumGrid";
 import { StatsPanel } from "./StatsPanel";
 import { useLanguage } from "./useLanguage";
+import { formatStickerReferences } from "@/lib/album";
 import { text } from "@/lib/i18n";
 import { normalizeCollectionState, uniqueSorted, type CollectionState } from "@/lib/stats";
 
@@ -24,6 +25,8 @@ export function PublicTradeApp() {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [missingSearch, setMissingSearch] = useState("");
+  const [tradeSearch, setTradeSearch] = useState("");
 
   useEffect(() => {
     setShareUrl(window.location.href);
@@ -55,6 +58,8 @@ export function PublicTradeApp() {
 
   const sortedMissing = useMemo(() => uniqueSorted(collection.missing), [collection.missing]);
   const sortedTrade = useMemo(() => uniqueSorted(collection.trade), [collection.trade]);
+  const offerSummary = useMemo(() => formatStickerReferences(hasForMe, language), [hasForMe, language]);
+  const wantSummary = useMemo(() => formatStickerReferences(wantsFromMe, language), [wantsFromMe, language]);
 
   function toggle(setter: (stickers: number[]) => void, values: number[], sticker: number) {
     const nextValues = values.includes(sticker) ? values.filter((value) => value !== sticker) : [...values, sticker];
@@ -63,6 +68,11 @@ export function PublicTradeApp() {
 
   async function submitProposal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!name.trim()) {
+      setMessage(t.nameRequired);
+      return;
+    }
+
     if (!canSubmit) {
       setMessage(t.minWarning);
       return;
@@ -104,6 +114,23 @@ export function PublicTradeApp() {
     }
   }
 
+  async function copyTradeRequest() {
+    const requestText = buildTradeRequestText({
+      title: t.submitProposal,
+      nameLabel: t.proposalName,
+      name,
+      offersLabel: t.offers,
+      offers: offerSummary,
+      wantsLabel: t.wants,
+      wants: wantSummary,
+      totalLabel: t.totalSelected,
+      total: totalSelected
+    });
+
+    await navigator.clipboard.writeText(requestText);
+    setMessage(t.copiedTradeRequest);
+  }
+
   return (
     <>
       <Header language={language} onLanguageChange={setLanguage} page="share" />
@@ -120,19 +147,19 @@ export function PublicTradeApp() {
           </div>
         </section>
 
-        {message ? <p className={warning ? "notice warning" : "notice"}>{message}</p> : null}
+        {message ? <p className={warning || message === t.nameRequired ? "notice warning" : "notice"}>{message}</p> : null}
         {warning ? <p className="notice warning">{t.minWarning}</p> : null}
 
         <div className="dashboard-grid">
           <StatsPanel state={collection} language={language} />
-          <form className="panel proposal-panel" onSubmit={submitProposal}>
+          <form className="panel proposal-panel" onSubmit={submitProposal} noValidate>
             <div className="section-heading">
               <span className="kicker">{t.publicTitle}</span>
               <h2>{t.submitProposal}</h2>
             </div>
             <label>
               <span>{t.proposalName}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} />
+              <input value={name} onChange={(event) => setName(event.target.value)} required />
             </label>
             <label>
               <span>{t.proposalContact}</span>
@@ -146,6 +173,30 @@ export function PublicTradeApp() {
               <span>{t.proposalNote}</span>
               <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} />
             </label>
+            <div className="trade-summary">
+              <h3>{t.tradeSummary}</h3>
+              <dl>
+                <div>
+                  <dt>{t.proposalName}</dt>
+                  <dd>{name.trim() || "-"}</dd>
+                </div>
+                <div>
+                  <dt>{t.offers}</dt>
+                  <dd>{offerSummary || "-"}</dd>
+                </div>
+                <div>
+                  <dt>{t.wants}</dt>
+                  <dd>{wantSummary || "-"}</dd>
+                </div>
+                <div>
+                  <dt>{t.totalSelected}</dt>
+                  <dd>{totalSelected}</dd>
+                </div>
+              </dl>
+            </div>
+            <button className="secondary-button full" type="button" onClick={copyTradeRequest} disabled={totalSelected === 0}>
+              {t.copyTradeRequest}
+            </button>
             <button className="primary-button full" type="submit" disabled={!canSubmit || isSubmitting}>
               {isSubmitting ? t.submitting : t.submitProposal}
             </button>
@@ -160,12 +211,22 @@ export function PublicTradeApp() {
             </div>
             <span className="summary-count">{sortedMissing.length}</span>
           </summary>
+          <label className="search-field">
+            <span>{t.searchPlaceholder}</span>
+            <input
+              type="search"
+              value={missingSearch}
+              onChange={(event) => setMissingSearch(event.target.value)}
+              placeholder={t.searchPlaceholder}
+            />
+          </label>
           <PublicStickerPicker
             stickers={sortedMissing}
             selected={hasForMe}
             color="missing"
             language={language}
             emptyText={t.noMissing}
+            searchTerm={missingSearch}
             onToggle={(sticker) => toggle(setHasForMe, hasForMe, sticker)}
           />
         </details>
@@ -178,12 +239,22 @@ export function PublicTradeApp() {
             </div>
             <span className="summary-count">{sortedTrade.length}</span>
           </summary>
+          <label className="search-field">
+            <span>{t.searchPlaceholder}</span>
+            <input
+              type="search"
+              value={tradeSearch}
+              onChange={(event) => setTradeSearch(event.target.value)}
+              placeholder={t.searchPlaceholder}
+            />
+          </label>
           <PublicStickerPicker
             stickers={sortedTrade}
             selected={wantsFromMe}
             color="trade"
             language={language}
             emptyText={t.noTrade}
+            searchTerm={tradeSearch}
             onToggle={(sticker) => toggle(setWantsFromMe, wantsFromMe, sticker)}
           />
         </details>
@@ -192,4 +263,34 @@ export function PublicTradeApp() {
       </main>
     </>
   );
+}
+
+function buildTradeRequestText({
+  title,
+  nameLabel,
+  name,
+  offersLabel,
+  offers,
+  wantsLabel,
+  wants,
+  totalLabel,
+  total
+}: {
+  title: string;
+  nameLabel: string;
+  name: string;
+  offersLabel: string;
+  offers: string;
+  wantsLabel: string;
+  wants: string;
+  totalLabel: string;
+  total: number;
+}) {
+  return [
+    title,
+    `${nameLabel}: ${name.trim() || "-"}`,
+    `${offersLabel}: ${offers || "-"}`,
+    `${wantsLabel}: ${wants || "-"}`,
+    `${totalLabel}: ${total}`
+  ].join("\n");
 }

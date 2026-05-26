@@ -1,5 +1,15 @@
 import { createSign } from "crypto";
-import { fwcRange, groups, isValidStickerNumber, range, TOTAL_STICKERS, type Team } from "./album";
+import {
+  formatStickerReferences,
+  fwcRange,
+  groups,
+  isValidStickerNumber,
+  parseStickerReferences,
+  range,
+  TOTAL_STICKERS,
+  type Language,
+  type Team
+} from "./album";
 import { normalizeCollectionState, uniqueSorted, type CollectionState } from "./stats";
 
 const MISSING_TAB = "MANGLER";
@@ -89,11 +99,12 @@ export async function readCollectionFromGoogleSheets(): Promise<CollectionState>
   if (structure.hadAlbumTabs) {
     const missing = await readStickerLayoutTab(config, structure.missingTab);
     const trade = await readStickerLayoutTab(config, structure.tradeTab);
+    const internal = await readInternalCollection(config).catch(() => undefined);
 
     return normalizeCollectionState({
       missing: missing.stickers,
       trade: trade.stickers,
-      updatedAt: trade.updatedAt || missing.updatedAt
+      updatedAt: trade.updatedAt || missing.updatedAt || internal?.updatedAt
     });
   }
 
@@ -115,6 +126,7 @@ export async function writeCollectionToGoogleSheets(state: CollectionState) {
 
 export async function appendTradeProposalToGoogleSheets(proposal: TradeProposal) {
   const config = requireGoogleConfig();
+  const proposalLanguage = getProposalLanguage(proposal.language);
   await ensureSheetStructure(config);
   await googleRequest(
     config,
@@ -128,10 +140,10 @@ export async function appendTradeProposalToGoogleSheets(proposal: TradeProposal)
             proposal.name,
             proposal.contact,
             proposal.address,
-            proposal.hasForMe.join(", "),
-            proposal.wantsFromMe.join(", "),
+            formatStickerReferences(proposal.hasForMe, proposalLanguage),
+            formatStickerReferences(proposal.wantsFromMe, proposalLanguage),
             proposal.note,
-            proposal.language,
+            proposalLanguage,
             "pending",
             "",
             ""
@@ -253,7 +265,7 @@ export async function rejectTradeProposalInGoogleSheets(rowNumber: number) {
 async function readStickerLayoutTab(config: GoogleConfig, tab: string) {
   const result = await googleRequest<{ values?: string[][] }>(
     config,
-    `/values/${encodeURIComponent(a1Range(tab, "A1:B250"))}`
+    `/values/${encodeURIComponent(a1Range(tab, "A1:C250"))}`
   );
 
   const stickers: number[] = [];
@@ -449,8 +461,8 @@ async function ensureSheetStructure(config: GoogleConfig): Promise<SheetStructur
           "name",
           "contact",
           "address",
-          "hasForMe",
-          "wantsFromMe",
+          "offersMissingStickers",
+          "wantsTradeStickers",
           "note",
           "language",
           "status",
@@ -494,7 +506,7 @@ function buildDefaultStickerLayout(tab: string) {
     [tab, ""],
     ["", ""],
     ["SÆRSKILTE STICKERS", ""],
-    ["Type", "Sticker numre"],
+    ["Type", "Klistermærkenumre"],
     ["🏆 FWC", ""],
     ["", ""]
   ];
@@ -547,14 +559,23 @@ function parseProposalRow(row: string[], rowNumber: number): TradeProposalRecord
     name: row[1] ?? "",
     contact: row[2] ?? "",
     address: isNewAddressFormat ? row[3] ?? "" : "",
-    hasForMe: uniqueSorted(parseStickerList(row[isNewAddressFormat ? 4 : 3] ?? "")),
-    wantsFromMe: uniqueSorted(parseStickerList(row[isNewAddressFormat ? 5 : 4] ?? "")),
+    hasForMe: parseProposalStickerCell(row[isNewAddressFormat ? 4 : 3] ?? ""),
+    wantsFromMe: parseProposalStickerCell(row[isNewAddressFormat ? 5 : 4] ?? ""),
     note: row[isNewAddressFormat ? 6 : 5] ?? "",
     language: row[isNewAddressFormat ? 7 : 6] ?? "da",
     status: getProposalStatus(row[statusIndex]),
     acceptedAt: row[isNewAddressFormat ? 9 : 8] ?? "",
     rejectedAt: row[isNewAddressFormat ? 10 : 9] ?? ""
   };
+}
+
+function parseProposalStickerCell(value: string) {
+  const references = parseStickerReferences(value);
+  return references.length > 0 ? uniqueSorted(references) : uniqueSorted(parseStickerList(value));
+}
+
+function getProposalLanguage(value: string): Language {
+  return value === "bs" || value === "en" ? value : "da";
 }
 
 function getProposalStatusRange(row: string[], rowNumber: number) {
