@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FooterNav } from "./FooterNav";
 import { Header } from "./Header";
 import { QRPanel } from "./QRPanel";
 import { PublicStickerPicker } from "./StickerAlbumGrid";
@@ -137,8 +138,8 @@ export function PublicTradeApp() {
       <main className="app-shell">
         <section className="intro-band public-intro">
           <div>
-            <span className="kicker">{t.readonly}</span>
-            <h1>{t.publicTitle}</h1>
+            <span className="kicker">{t.publicShare}</span>
+            <h1>{t.ownerName}</h1>
             <p>{t.publicIntro}</p>
           </div>
           <div className="selection-counter">
@@ -149,59 +150,6 @@ export function PublicTradeApp() {
 
         {message ? <p className={warning || message === t.nameRequired ? "notice warning" : "notice"}>{message}</p> : null}
         {warning ? <p className="notice warning">{t.minWarning}</p> : null}
-
-        <div className="dashboard-grid">
-          <StatsPanel state={collection} language={language} />
-          <form className="panel proposal-panel" onSubmit={submitProposal} noValidate>
-            <div className="section-heading">
-              <span className="kicker">{t.publicTitle}</span>
-              <h2>{t.submitProposal}</h2>
-            </div>
-            <label>
-              <span>{t.proposalName}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required />
-            </label>
-            <label>
-              <span>{t.proposalContact}</span>
-              <input value={contact} onChange={(event) => setContact(event.target.value)} />
-            </label>
-            <label>
-              <span>{t.proposalAddress}</span>
-              <input value={address} onChange={(event) => setAddress(event.target.value)} />
-            </label>
-            <label>
-              <span>{t.proposalNote}</span>
-              <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} />
-            </label>
-            <div className="trade-summary">
-              <h3>{t.tradeSummary}</h3>
-              <dl>
-                <div>
-                  <dt>{t.proposalName}</dt>
-                  <dd>{name.trim() || "-"}</dd>
-                </div>
-                <div>
-                  <dt>{t.offers}</dt>
-                  <dd>{offerSummary || "-"}</dd>
-                </div>
-                <div>
-                  <dt>{t.wants}</dt>
-                  <dd>{wantSummary || "-"}</dd>
-                </div>
-                <div>
-                  <dt>{t.totalSelected}</dt>
-                  <dd>{totalSelected}</dd>
-                </div>
-              </dl>
-            </div>
-            <button className="secondary-button full" type="button" onClick={copyTradeRequest} disabled={totalSelected === 0}>
-              {t.copyTradeRequest}
-            </button>
-            <button className="primary-button full" type="submit" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? t.submitting : t.submitProposal}
-            </button>
-          </form>
-        </div>
 
         <details className="collection-section collapsible-section">
           <summary>
@@ -259,7 +207,60 @@ export function PublicTradeApp() {
           />
         </details>
 
+        <StatsPanel state={collection} language={language} />
+
+        <form className="panel proposal-panel trade-flow-panel" onSubmit={submitProposal} noValidate>
+          <div className="section-heading">
+            <span className="kicker">{t.publicShare}</span>
+            <h2>{t.submitProposal}</h2>
+          </div>
+          <label>
+            <span>{t.proposalName}</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} required />
+          </label>
+          <label>
+            <span>{t.proposalContact}</span>
+            <input value={contact} onChange={(event) => setContact(event.target.value)} />
+          </label>
+          <label>
+            <span>{t.proposalAddress}</span>
+            <input value={address} onChange={(event) => setAddress(event.target.value)} />
+          </label>
+          <label>
+            <span>{t.proposalNote}</span>
+            <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} />
+          </label>
+          <div className="trade-summary">
+            <h3>{t.tradeSummary}</h3>
+            <dl>
+              <div>
+                <dt>{t.proposalName}</dt>
+                <dd>{name.trim() || "-"}</dd>
+              </div>
+              <div>
+                <dt>{t.offers}</dt>
+                <dd>{offerSummary || "-"}</dd>
+              </div>
+              <div>
+                <dt>{t.wants}</dt>
+                <dd>{wantSummary || "-"}</dd>
+              </div>
+              <div>
+                <dt>{t.totalSelected}</dt>
+                <dd>{totalSelected}</dd>
+              </div>
+            </dl>
+          </div>
+          <button className="secondary-button full" type="button" onClick={copyTradeRequest} disabled={totalSelected === 0}>
+            {t.copyTradeRequest}
+          </button>
+          <button className="primary-button full" type="submit" disabled={!canSubmit || isSubmitting}>
+            {isSubmitting ? t.submitting : t.submitProposal}
+          </button>
+        </form>
+
         <QRPanel language={language} shareUrl={shareUrl} />
+        <FooterNav language={language} page="share" />
       </main>
     </>
   );

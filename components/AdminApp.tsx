@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FooterNav } from "./FooterNav";
 import { Header } from "./Header";
 import { QRPanel } from "./QRPanel";
 import { StatsPanel } from "./StatsPanel";
@@ -271,12 +272,9 @@ export function AdminApp() {
         <section className="intro-band">
           <div>
             <span className="kicker">Version 1</span>
-            <h1>{t.adminTitle}</h1>
+            <h1>{t.ownerName}</h1>
             <p>{t.fwc} · 980 {t.totalStickers} · Google Sheets</p>
           </div>
-          <a className="primary-link" href="/share">
-            {t.openPublic}
-          </a>
         </section>
 
         {!isUnlocked ? (
@@ -306,45 +304,96 @@ export function AdminApp() {
             {message ? <p className="notice">{message}</p> : null}
             {isLoading ? <p className="notice">Loading...</p> : null}
 
-            <div className="dashboard-grid">
-              <StatsPanel state={collection} language={language} />
-              <section className="panel action-panel">
+            <details className="collection-section collapsible-section">
+              <summary>
                 <div className="section-heading">
-                  <span className="kicker">{t.publicShare}</span>
-                  <h2>{t.save}</h2>
+                  <span className="kicker">{t.selectedMissing}</span>
+                  <h2>{t.missing}</h2>
                 </div>
-                <div className="action-list">
-                  <div>
-                    <span>{t.missingCount}</span>
-                    <strong>{counts.missing}</strong>
-                  </div>
-                  <div>
-                    <span>{t.tradeCount}</span>
-                    <strong>{counts.trade}</strong>
-                  </div>
-                </div>
-                {diagnostics ? (
-                  <div className="diagnostics-box" aria-label="Google Sheets setup">
-                    <span>Google Sheets setup</span>
-                    <code>Sheet ID: {diagnostics.googleSheetId || "Mangler"}</code>
-                    <code>Service account: {diagnostics.serviceAccountEmail || "Mangler"}</code>
-                    <code>
-                      Private key:{" "}
-                      {diagnostics.privateKeyPresent
-                        ? diagnostics.privateKeyLooksValid
-                          ? "OK"
-                          : "Forkert format"
-                        : "Mangler"}
-                    </code>
-                  </div>
-                ) : null}
-                <button className="primary-button full" type="button" onClick={saveCollection} disabled={isSaving}>
-                  {isSaving ? t.saving : t.save}
-                </button>
-              </section>
-            </div>
+                <span className="summary-count">{counts.missing}</span>
+              </summary>
+              <label className="search-field">
+                <span>{t.searchPlaceholder}</span>
+                <input
+                  type="search"
+                  value={missingSearch}
+                  onChange={(event) => setMissingSearch(event.target.value)}
+                  placeholder={t.searchPlaceholder}
+                />
+              </label>
+              <StickerAlbumGrid
+                mode="missing"
+                state={collection}
+                language={language}
+                searchTerm={missingSearch}
+                onToggle={toggleSticker}
+              />
+            </details>
 
-            <details className="panel proposal-admin-panel collapsible-section" open>
+            <details className="collection-section collapsible-section">
+              <summary>
+                <div className="section-heading">
+                  <span className="kicker">{t.selectedTrade}</span>
+                  <h2>{t.trade}</h2>
+                </div>
+                <span className="summary-count">{counts.trade}</span>
+              </summary>
+              <label className="search-field">
+                <span>{t.searchPlaceholder}</span>
+                <input
+                  type="search"
+                  value={tradeSearch}
+                  onChange={(event) => setTradeSearch(event.target.value)}
+                  placeholder={t.searchPlaceholder}
+                />
+              </label>
+              <StickerAlbumGrid
+                mode="trade"
+                state={collection}
+                language={language}
+                searchTerm={tradeSearch}
+                onToggle={toggleSticker}
+              />
+            </details>
+
+            <StatsPanel state={collection} language={language} />
+
+            <section className="panel action-panel admin-tools-panel">
+              <div className="section-heading">
+                <span className="kicker">Google Sheets</span>
+                <h2>{t.save}</h2>
+              </div>
+              <div className="action-list">
+                <div>
+                  <span>{t.missingCount}</span>
+                  <strong>{counts.missing}</strong>
+                </div>
+                <div>
+                  <span>{t.tradeCount}</span>
+                  <strong>{counts.trade}</strong>
+                </div>
+              </div>
+              {diagnostics ? (
+                <div className="diagnostics-box" aria-label="Google Sheets setup">
+                  <span>Google Sheets setup</span>
+                  <code>Sheet ID: {diagnostics.googleSheetId || "Mangler"}</code>
+                  <code>Service account: {diagnostics.serviceAccountEmail || "Mangler"}</code>
+                  <code>
+                    Private key:{" "}
+                    {diagnostics.privateKeyPresent
+                      ? diagnostics.privateKeyLooksValid
+                        ? "OK"
+                        : "Forkert format"
+                      : "Mangler"}
+                  </code>
+                </div>
+              ) : null}
+              <button className="primary-button full" type="button" onClick={saveCollection} disabled={isSaving}>
+                {isSaving ? t.saving : t.save}
+              </button>
+            </section>
+
+            <details className="panel proposal-admin-panel collapsible-section">
               <summary>
                 <div className="section-heading">
                   <span className="kicker">Google Sheets</span>
@@ -418,61 +467,10 @@ export function AdminApp() {
               </div>
             </details>
 
-            <details className="collection-section collapsible-section">
-              <summary>
-                <div className="section-heading">
-                  <span className="kicker">{t.selectedMissing}</span>
-                  <h2>{t.missing}</h2>
-                </div>
-                <span className="summary-count">{counts.missing}</span>
-              </summary>
-              <label className="search-field">
-                <span>{t.searchPlaceholder}</span>
-                <input
-                  type="search"
-                  value={missingSearch}
-                  onChange={(event) => setMissingSearch(event.target.value)}
-                  placeholder={t.searchPlaceholder}
-                />
-              </label>
-              <StickerAlbumGrid
-                mode="missing"
-                state={collection}
-                language={language}
-                searchTerm={missingSearch}
-                onToggle={toggleSticker}
-              />
-            </details>
-
-            <details className="collection-section collapsible-section">
-              <summary>
-                <div className="section-heading">
-                  <span className="kicker">{t.selectedTrade}</span>
-                  <h2>{t.trade}</h2>
-                </div>
-                <span className="summary-count">{counts.trade}</span>
-              </summary>
-              <label className="search-field">
-                <span>{t.searchPlaceholder}</span>
-                <input
-                  type="search"
-                  value={tradeSearch}
-                  onChange={(event) => setTradeSearch(event.target.value)}
-                  placeholder={t.searchPlaceholder}
-                />
-              </label>
-              <StickerAlbumGrid
-                mode="trade"
-                state={collection}
-                language={language}
-                searchTerm={tradeSearch}
-                onToggle={toggleSticker}
-              />
-            </details>
-
             <QRPanel language={language} shareUrl={shareUrl} />
           </>
         )}
+        <FooterNav language={language} page="admin" />
       </main>
     </>
   );

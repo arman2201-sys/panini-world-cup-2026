@@ -9,6 +9,7 @@ export const languages: Array<{ code: Language; flag: string; label: string }> =
 export const text = {
   da: {
     appName: "Panini FIFA World Cup 2026",
+    ownerName: "Arian Asovic",
     adminTitle: "Min klistermærkesamling",
     publicTitle: "Bytteforslag",
     language: "Sprog",
@@ -82,6 +83,7 @@ export const text = {
   },
   bs: {
     appName: "Panini FIFA World Cup 2026",
+    ownerName: "Arian Asovic",
     adminTitle: "Moja kolekcija sličica",
     publicTitle: "Prijedlog za razmjenu",
     language: "Jezik",
@@ -155,6 +157,7 @@ export const text = {
   },
   en: {
     appName: "Panini FIFA World Cup 2026",
+    ownerName: "Arian Asovic",
     adminTitle: "My sticker collection",
     publicTitle: "Trade request",
     language: "Language",
