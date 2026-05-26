@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { CardRegistrationPanel } from "./CardRegistrationPanel";
 import { FooterNav } from "./FooterNav";
 import { Header } from "./Header";
 import { QRPanel } from "./QRPanel";
@@ -9,7 +10,7 @@ import { StickerAlbumGrid } from "./StickerAlbumGrid";
 import { useLanguage } from "./useLanguage";
 import { formatStickerReferences, type Language } from "@/lib/album";
 import { text } from "@/lib/i18n";
-import { normalizeCollectionState, type CollectionState } from "@/lib/stats";
+import { normalizeCollectionState, uniqueSorted, type CollectionState } from "@/lib/stats";
 
 const emptyState = normalizeCollectionState();
 
@@ -52,6 +53,7 @@ export function AdminApp() {
   const [rejectingProposal, setRejectingProposal] = useState<number | null>(null);
   const [missingSearch, setMissingSearch] = useState("");
   const [tradeSearch, setTradeSearch] = useState("");
+  const [selectedPackCards, setSelectedPackCards] = useState<number[]>([]);
 
   async function loadDiagnostics(currentPassword = password) {
     try {
@@ -168,11 +170,12 @@ export function AdminApp() {
     });
   }
 
-  async function saveCollection() {
+  async function saveCollection(nextCollection = collection, successMessage = t.saved) {
     setIsSaving(true);
     setMessage("");
 
     try {
+      const normalizedNext = normalizeCollectionState(nextCollection);
       const response = await fetch("/api/collection", {
         method: "PUT",
         headers: {
@@ -180,8 +183,8 @@ export function AdminApp() {
           "x-admin-password": password
         },
         body: JSON.stringify({
-          missing: collection.missing,
-          trade: collection.trade
+          missing: normalizedNext.missing,
+          trade: normalizedNext.trade
         })
       });
 
@@ -191,11 +194,48 @@ export function AdminApp() {
 
       const saved = (await response.json()) as CollectionState;
       setCollection(normalizeCollectionState(saved));
-      setMessage(t.saved);
+      setMessage(successMessage);
+      return true;
     } catch {
       setMessage(t.saveError);
+      return false;
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function togglePackCard(sticker: number) {
+    setSelectedPackCards((current) =>
+      current.includes(sticker) ? current.filter((value) => value !== sticker) : uniqueSorted([...current, sticker])
+    );
+  }
+
+  async function saveRegisteredCards() {
+    if (selectedPackCards.length === 0) {
+      return;
+    }
+
+    const selectedSet = new Set(selectedPackCards);
+    const currentMissingSet = new Set(collection.missing);
+    const nextTrade = new Set(collection.trade);
+
+    for (const sticker of selectedPackCards) {
+      if (currentMissingSet.has(sticker)) {
+        nextTrade.delete(sticker);
+      } else {
+        nextTrade.add(sticker);
+      }
+    }
+
+    const nextCollection = normalizeCollectionState({
+      ...collection,
+      missing: collection.missing.filter((sticker) => !selectedSet.has(sticker)),
+      trade: Array.from(nextTrade)
+    });
+
+    const didSave = await saveCollection(nextCollection, t.registerSaved);
+    if (didSave) {
+      setSelectedPackCards([]);
     }
   }
 
@@ -356,6 +396,16 @@ export function AdminApp() {
               />
             </details>
 
+            <CardRegistrationPanel
+              state={collection}
+              selectedCards={selectedPackCards}
+              language={language}
+              isSaving={isSaving}
+              onToggle={togglePackCard}
+              onCancel={() => setSelectedPackCards([])}
+              onSave={saveRegisteredCards}
+            />
+
             <StatsPanel state={collection} language={language} />
 
             <section className="panel action-panel admin-tools-panel">
@@ -388,7 +438,7 @@ export function AdminApp() {
                   </code>
                 </div>
               ) : null}
-              <button className="primary-button full" type="button" onClick={saveCollection} disabled={isSaving}>
+              <button className="primary-button full" type="button" onClick={() => saveCollection()} disabled={isSaving}>
                 {isSaving ? t.saving : t.save}
               </button>
             </section>
